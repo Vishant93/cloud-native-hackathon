@@ -1,0 +1,43 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+  prometheus:
+    config:
+      global:
+        scrape_interval: 10s
+      scrape_configs:
+        - job_name: eventpulse
+          metrics_path: /actuator/prometheus
+          static_configs:
+            - targets: ["host.docker.internal:8080"]
+
+processors:
+  resource/eventpulse:
+    attributes:
+      - key: service.name
+        value: eventpulse
+        action: upsert
+      - key: deployment.environment.name
+        value: local
+        action: upsert
+  batch:
+
+exporters:
+  otlphttp/dash0:
+    endpoint: ${env:DASH0_OTLP_ENDPOINT}
+    headers:
+      authorization: "Bearer ${env:DASH0_AUTH_TOKEN}"
+      dash0-dataset: ${env:DASH0_DATASET}
+
+service:
+  pipelines:
+    metrics/prometheus:
+      receivers: [prometheus]
+      processors: [resource/eventpulse, batch]
+      exporters: [otlphttp/dash0]
+    metrics/k6:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp/dash0]

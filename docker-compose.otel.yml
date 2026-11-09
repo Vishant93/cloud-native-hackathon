@@ -1,0 +1,19 @@
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.120.0
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4318:4318"
+    environment:
+      DASH0_OTLP_ENDPOINT: ${DASH0_OTLP_ENDPOINT:?Set DASH0_OTLP_ENDPOINT to your Dash0 OTLP base endpoint}
+      DASH0_AUTH_TOKEN: ${DASH0_AUTH_TOKEN:?Set DASH0_AUTH_TOKEN to your Dash0 authorization token}
+      DASH0_DATASET: ${DASH0_DATASET:-default}
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    networks:
+      - observability
+
+networks:
+  observability:
+    name: eventpulse-observability
