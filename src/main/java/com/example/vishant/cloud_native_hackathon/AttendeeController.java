@@ -80,9 +80,16 @@ public class AttendeeController {
 
 	@PostMapping(value = "/check-in/{token}", produces = MediaType.TEXT_HTML_VALUE)
 	public String checkIn(@PathVariable String token) {
-		var attendee = attendeeService.checkIn(token);
-		if (attendee == null) {
+		var attempt = attendeeService.checkInOnce(token);
+		if (attempt == null) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Check-in link not found");
+		}
+
+		var attendee = attempt.attendee();
+		if (!attempt.checkedInNow()) {
+			return "<!doctype html><html><body><h1>Already checked in</h1><p>"
+					+ HtmlUtils.htmlEscape(attendee.name())
+					+ "</p></body></html>";
 		}
 
 		return "<!doctype html><html><body><h1>Checked in</h1><p>"
@@ -92,15 +99,15 @@ public class AttendeeController {
 
 	@PostMapping("/api/attendees/{token}/check-in")
 	public CheckInResponse checkInApi(@PathVariable String token) {
-		var existing = attendeeService.findByToken(token);
-		if (existing == null) {
+		var attempt = attendeeService.checkInOnce(token);
+		if (attempt == null) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Attendee ID is invalid");
 		}
-		if (existing.checkedIn()) {
+		if (!attempt.checkedInNow()) {
 			throw new ResponseStatusException(HttpStatus.CONFLICT,
-					"Attendee already checked in at " + existing.checkedInAt());
+					"Attendee already checked in at " + attempt.attendee().checkedInAt());
 		}
-		var attendee = attendeeService.checkIn(token);
+		var attendee = attempt.attendee();
 
 		return new CheckInResponse(
 				attendee.token(),

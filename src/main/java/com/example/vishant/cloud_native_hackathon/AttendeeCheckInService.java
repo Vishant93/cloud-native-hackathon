@@ -47,12 +47,13 @@ public class AttendeeCheckInService {
 				token).stream().findFirst().orElse(null);
 	}
 
-	public Attendee checkIn(String token) {
-		jdbcTemplate.update(
+	public CheckInAttempt checkInOnce(String token) {
+		int updatedRows = jdbcTemplate.update(
 				"UPDATE attendees SET checked_in = TRUE, checked_in_at = CURRENT_TIMESTAMP "
 						+ "WHERE token = ? AND checked_in = FALSE",
 				token);
-		return findByToken(token);
+		var attendee = findByToken(token);
+		return attendee == null ? null : new CheckInAttempt(attendee, updatedRows == 1);
 	}
 
 	private static Attendee mapAttendee(ResultSet resultSet, int rowNumber) throws SQLException {
@@ -66,5 +67,8 @@ public class AttendeeCheckInService {
 	}
 
 	public record Attendee(String token, String name, String email, boolean checkedIn, Instant checkedInAt) {
+	}
+
+	public record CheckInAttempt(Attendee attendee, boolean checkedInNow) {
 	}
 }

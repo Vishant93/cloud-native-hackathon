@@ -8,6 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.ByteArrayInputStream;
 import java.util.Base64;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import javax.imageio.ImageIO;
 
@@ -69,6 +72,7 @@ class AttendeeControllerTests {
 		assertTrue(controller.checkInPage(token).contains("Confirm check-in"));
 		assertTrue(controller.checkIn(token).contains("Checked in"));
 		assertTrue(controller.checkInPage(token).contains("Already checked in"));
+		assertTrue(controller.checkIn(token).contains("Already checked in"));
 	}
 
 	@Test
@@ -102,5 +106,35 @@ class AttendeeControllerTests {
 
 		var exception = assertThrows(ResponseStatusException.class, () -> controller.checkInApi(token));
 		assertEquals(409, exception.getStatusCode().value());
+	}
+
+	@Test
+	void concurrentApiCheckInsOnlyAllowOneRequest() throws Exception {
+		var registration = controller.register(new AttendeeController.RegistrationRequest("Riley", "riley@example.com"));
+		String token = registration.getBody().attendeeId();
+		var executor = Executors.newFixedThreadPool(2);
+		var start = new CountDownLatch(1);
+
+		try {
+			Future<Integer> first = executor.submit(() -> checkInStatusAfter(start, token));
+			Future<Integer> second = executor.submit(() -> checkInStatusAfter(start, token));
+			start.countDown();
+
+			var statuses = java.util.List.of(first.get(), second.get());
+			assertEquals(1, statuses.stream().filter(status -> status == 200).count());
+			assertEquals(1, statuses.stream().filter(status -> status == 409).count());
+		} finally {
+			executor.shutdownNow();
+		}
+	}
+
+	private int checkInStatusAfter(CountDownLatch start, String token) throws InterruptedException {
+		start.await();
+		try {
+			controller.checkInApi(token);
+			return 200;
+		} catch (ResponseStatusException exception) {
+			return exception.getStatusCode().value();
+		}
 	}
 }
