@@ -1,5 +1,7 @@
 FROM node:22-alpine AS frontend
 WORKDIR /workspace/frontend
+ARG VITE_BASE_PATH=/eventpulse/
+ENV VITE_BASE_PATH=${VITE_BASE_PATH}
 COPY frontend/package.json ./
 COPY frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund

@@ -118,7 +118,7 @@ Kafka settings can be changed with `KAFKA_BOOTSTRAP_SERVERS`, `KAFKA_CHECK_IN_TO
 
 ## Kubernetes demo deployment
 
-The `deploy/` folder contains a separate Kustomize deployment for the `team-vishant` namespace. It serves the React build from Spring Boot, runs a single Kafka broker, and uses a single application replica so the local H2 database is not concurrently opened by multiple pods. The Argo CD application definition is in `argocd/eventpulse-application.yaml`; the GitHub Actions workflow builds and publishes the image to GHCR on pushes to the `deploy/eventpulse` branch, then updates the image tag for Argo CD.
+The `deploy/` folder contains a separate Kustomize deployment for the `team-vishant` namespace. It serves the React build from Spring Boot, runs a single Kafka broker, and uses a single application replica so the local H2 database is not concurrently opened by multiple pods. The app is routed under `https://vishant.cnh.radarhq.io/eventpulse`, leaving the existing app's root route intact. The Argo CD application definition is in `argocd/eventpulse-application.yaml`; the GitHub Actions workflow builds and publishes the image to GHCR on pushes to the `deploy/eventpulse` branch, then updates the image tag for Argo CD.
 
 This is a hackathon demo configuration, not durable production hosting: the cluster currently has no StorageClass, so both H2 and Kafka use ephemeral pod storage. Data and Kafka offsets can be lost when their pods are replaced. Use persistent PostgreSQL and Kafka storage before relying on this deployment for real event attendance.
 

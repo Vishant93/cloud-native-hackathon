@@ -32,7 +32,7 @@ spec:
               containerPort: 8080
           env:
             - name: APP_BASE_URL
-              value: https://eventpulse-vishant.cnh.radarhq.io
+              value: https://vishant.cnh.radarhq.io/eventpulse
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: eventpulse-kafka:9092
             - name: SPRING_DATASOURCE_URL

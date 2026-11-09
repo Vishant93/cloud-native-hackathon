@@ -8,8 +8,18 @@ spec:
       namespace: gateway
       sectionName: https
   hostnames:
-    - eventpulse-vishant.cnh.radarhq.io
+    - vishant.cnh.radarhq.io
   rules:
-    - backendRefs:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /eventpulse
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
+      backendRefs:
         - name: eventpulse-app
           port: 80

@@ -72,6 +72,8 @@ class AttendeeControllerTests {
 		var registration = controller.register(new AttendeeController.RegistrationRequest("Alex", "alex@example.com"));
 		String token = registration.getBody().attendeeId();
 
+		assertTrue(controller.checkInPage(token).contains(
+				"action=\"https://event.example/check-in/" + token + "\""));
 		assertTrue(controller.checkInPage(token).contains("Confirm check-in"));
 		assertTrue(controller.checkIn(token).contains("Checked in"));
 		assertTrue(controller.checkInPage(token).contains("Already checked in"));
