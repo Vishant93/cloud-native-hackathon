@@ -157,7 +157,7 @@ public class AttendeeController {
 						button:hover { background: #d7ff7c; transform: translateY(-1px); }
 						button:focus-visible { outline: 3px solid #efffca; outline-offset: 3px; }
 						.footer { margin: 30px 0 0; padding-top: 18px; border-top: 1px solid #2a374b; color: #78889d; font-size: 11px; text-align: center; }
-						@media (max-width: 480%%) { body { padding: 16px; } .card { padding: 26px 22px; } .brand { margin-bottom: 34px; } }
+						@media (max-width: 480px) { body { padding: 16px; } .card { padding: 26px 22px; } .brand { margin-bottom: 34px; } }
 					</style>
 				</head>
 				<body>
