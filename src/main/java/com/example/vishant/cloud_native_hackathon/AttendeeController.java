@@ -1,6 +1,7 @@
 package com.example.vishant.cloud_native_hackathon;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Base64;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -83,9 +84,26 @@ public class AttendeeController {
 				+ "</p></body></html>";
 	}
 
+	@PostMapping("/api/attendees/{token}/check-in")
+	public CheckInResponse checkInApi(@PathVariable String token) {
+		var attendee = attendeeService.checkIn(token);
+		if (attendee == null) {
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Attendee ID is invalid");
+		}
+
+		return new CheckInResponse(
+				attendee.token(),
+				attendee.name(),
+				attendee.checkedIn(),
+				attendee.checkedInAt());
+	}
+
 	public record RegistrationRequest(String name) {
 	}
 
 	public record RegistrationResponse(String attendeeId, String name, String checkInUrl, String qrCodePngBase64) {
+	}
+
+	public record CheckInResponse(String attendeeId, String name, boolean checkedIn, Instant checkedInAt) {
 	}
 }
