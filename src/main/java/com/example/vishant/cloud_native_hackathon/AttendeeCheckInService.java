@@ -4,10 +4,12 @@ import java.time.Instant;
 import java.util.UUID;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AttendeeCheckInService {
@@ -47,12 +49,22 @@ public class AttendeeCheckInService {
 				token).stream().findFirst().orElse(null);
 	}
 
+	@Transactional
 	public CheckInAttempt checkInOnce(String token) {
 		int updatedRows = jdbcTemplate.update(
 				"UPDATE attendees SET checked_in = TRUE, checked_in_at = CURRENT_TIMESTAMP "
 						+ "WHERE token = ? AND checked_in = FALSE",
 				token);
 		var attendee = findByToken(token);
+		if (updatedRows == 1) {
+			jdbcTemplate.update(
+					"INSERT INTO check_in_outbox (event_id, attendee_id, attendee_name, checked_in_at) "
+							+ "VALUES (?, ?, ?, ?)",
+					UUID.randomUUID().toString(),
+					attendee.token(),
+					attendee.name(),
+					Timestamp.from(attendee.checkedInAt()));
+		}
 		return attendee == null ? null : new CheckInAttempt(attendee, updatedRows == 1);
 	}
 
