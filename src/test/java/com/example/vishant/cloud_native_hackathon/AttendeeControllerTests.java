@@ -28,7 +28,9 @@ import com.google.zxing.common.HybridBinarizer;
 
 @SpringBootTest(properties = {
 		"spring.datasource.url=jdbc:h2:mem:attendees-test;DB_CLOSE_DELAY=-1",
-		"app.base-url=https://event.example"
+		"app.base-url=https://event.example",
+		"app.kafka.outbox.enabled=false",
+		"spring.kafka.listener.auto-startup=false"
 })
 class AttendeeControllerTests {
 
@@ -43,6 +45,7 @@ class AttendeeControllerTests {
 
 	@BeforeEach
 	void resetAttendeeRecords() {
+		jdbcTemplate.update("DELETE FROM check_in_outbox");
 		jdbcTemplate.update("DELETE FROM attendees");
 	}
 
@@ -89,6 +92,10 @@ class AttendeeControllerTests {
 		assertEquals("Jordan", result.name());
 		assertTrue(result.checkedIn());
 		assertTrue(attendeeService.findByToken(result.attendeeId()).checkedIn());
+		assertEquals(1, jdbcTemplate.queryForObject(
+				"SELECT COUNT(*) FROM check_in_outbox WHERE attendee_id = ?",
+				Integer.class,
+				result.attendeeId()));
 	}
 
 	@Test
@@ -106,6 +113,10 @@ class AttendeeControllerTests {
 
 		var exception = assertThrows(ResponseStatusException.class, () -> controller.checkInApi(token));
 		assertEquals(409, exception.getStatusCode().value());
+		assertEquals(1, jdbcTemplate.queryForObject(
+				"SELECT COUNT(*) FROM check_in_outbox WHERE attendee_id = ?",
+				Integer.class,
+				token));
 	}
 
 	@Test
