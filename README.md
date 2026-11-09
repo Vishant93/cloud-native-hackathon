@@ -89,6 +89,8 @@ npm run dev
 
 Open the local URL printed by Vite. Its development server proxies `/api` requests to `http://localhost:8080`.
 
+By default, registration creates check-in links using `http://localhost:8080`. That is suitable for testing on the same computer, but `localhost` on a phone points to the phone itself. To let attendees open QR links from another device or network, set `APP_BASE_URL` to the public HTTPS address serving this app before starting the backend. For a phone on the same Wi-Fi, use the computer's LAN address and ensure the backend is reachable from that device. The app already uses `https://vishant.cnh.radarhq.io/eventpulse` in its Kubernetes deployment.
+
 Build the production frontend bundle with:
 
 ```powershell

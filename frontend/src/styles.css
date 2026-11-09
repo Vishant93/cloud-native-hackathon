@@ -341,32 +341,41 @@ button, input { font: inherit; }
 .steps strong { margin-bottom: 5px; font-size: 13px; font-weight: 600; }
 .steps small { color: #8796aa; font-size: 11px; line-height: 1.5; }
 
-.attendee-result {
+.verification-panel {
   display: flex;
-  gap: 12px;
-  margin-top: 30px;
-  padding: 14px;
-  border: 1px solid #43583d;
-  border-radius: 10px;
-  background: rgba(117, 153, 74, .1);
+  align-items: flex-start;
+  gap: 13px;
+  margin-top: 28px;
+  padding: 17px;
+  border: 1px solid #3b4b60;
+  border-radius: 12px;
+  background: rgba(16, 24, 39, .7);
 }
 
-.result-check {
-  width: 25px;
-  height: 25px;
-  flex: 0 0 25px;
+.verification-icon {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: #c9f36a;
-  color: #17221b;
+  background: #26354a;
+  color: #a9c8e3;
   font-weight: 800;
 }
 
-.attendee-result small, .attendee-result strong, .attendee-result code { display: block; }
-.attendee-result small { margin: 1px 0 5px; color: #c9f36a; font-size: 9px; font-weight: 700; letter-spacing: .1em; }
-.attendee-result strong { margin-bottom: 5px; font-size: 14px; }
-.attendee-result code { overflow-wrap: anywhere; color: #aeb9c9; font-size: 10px; }
+.verification-content { min-width: 0; }
+.verification-content .eyebrow { margin: 2px 0 6px; color: #a9c8e3; font-size: 9px; }
+.verification-content h3 { margin: 0; font-size: 16px; letter-spacing: -.02em; }
+.verification-name { margin: 9px 0 0; color: #e8edf5; font-size: 14px; font-weight: 650; }
+.verification-time, .verification-message { margin: 6px 0 0; color: #aab6c7; font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
+.verification-success { border-color: #43583d; background: rgba(117, 153, 74, .1); }
+.verification-success .verification-icon { background: #c9f36a; color: #17221b; }
+.verification-success .verification-content .eyebrow { color: #c9f36a; }
+.verification-error { border-color: #68414a; background: rgba(120, 47, 57, .13); }
+.verification-error .verification-icon { background: #492d38; color: #ff9a9a; }
+.verification-error .verification-content .eyebrow { color: #ff9a9a; }
+.verification-loading .verification-icon { color: #84c9ff; }
 
 footer {
   padding: 16px 0 25px;
