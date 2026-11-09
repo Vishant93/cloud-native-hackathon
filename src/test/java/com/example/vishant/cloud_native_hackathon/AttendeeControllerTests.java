@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.ByteArrayInputStream;
 import java.util.Base64;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.google.zxing.BinaryBitmap;
 import com.google.zxing.MultiFormatReader;
@@ -70,5 +72,33 @@ class AttendeeControllerTests {
 	@Test
 	void unknownAttendeeIdDoesNotValidate() {
 		assertNull(attendeeService.findByToken("not-a-real-attendee"));
+	}
+
+	@Test
+	void apiCheckInReturnsAttendeeAndPersistsCheckIn() throws Exception {
+		var registration = controller.register(new AttendeeController.RegistrationRequest("Jordan"));
+		var result = controller.checkInApi(registration.getBody().attendeeId());
+
+		assertEquals(registration.getBody().attendeeId(), result.attendeeId());
+		assertEquals("Jordan", result.name());
+		assertTrue(result.checkedIn());
+		assertTrue(attendeeService.findByToken(result.attendeeId()).checkedIn());
+	}
+
+	@Test
+	void apiCheckInRejectsUnknownToken() {
+		var exception = assertThrows(ResponseStatusException.class,
+				() -> controller.checkInApi("not-a-real-attendee"));
+		assertEquals(404, exception.getStatusCode().value());
+	}
+
+	@Test
+	void apiCheckInRejectsRepeatCheckIn() throws Exception {
+		var registration = controller.register(new AttendeeController.RegistrationRequest("Casey"));
+		String token = registration.getBody().attendeeId();
+		controller.checkInApi(token);
+
+		var exception = assertThrows(ResponseStatusException.class, () -> controller.checkInApi(token));
+		assertEquals(409, exception.getStatusCode().value());
 	}
 }
