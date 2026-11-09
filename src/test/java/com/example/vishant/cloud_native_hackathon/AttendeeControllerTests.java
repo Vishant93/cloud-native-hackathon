@@ -2,6 +2,7 @@ package com.example.vishant.cloud_native_hackathon;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
@@ -9,18 +10,36 @@ import java.util.Base64;
 
 import javax.imageio.ImageIO;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.google.zxing.BinaryBitmap;
 import com.google.zxing.MultiFormatReader;
 import com.google.zxing.client.j2se.BufferedImageLuminanceSource;
 import com.google.zxing.common.HybridBinarizer;
 
+@SpringBootTest(properties = {
+		"spring.datasource.url=jdbc:h2:mem:attendees-test;DB_CLOSE_DELAY=-1",
+		"app.base-url=https://event.example"
+})
 class AttendeeControllerTests {
 
-	private final AttendeeCheckInService attendeeService = new AttendeeCheckInService();
-	private final AttendeeController controller = new AttendeeController(
-			attendeeService, new QrCodeService(), "https://event.example");
+	@Autowired
+	private AttendeeCheckInService attendeeService;
+
+	@Autowired
+	private AttendeeController controller;
+
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
+
+	@BeforeEach
+	void resetAttendeeRecords() {
+		jdbcTemplate.update("DELETE FROM attendees");
+	}
 
 	@Test
 	void eachAttendeeGetsUniqueCheckInUrlAndQrCode() throws Exception {
@@ -46,5 +65,10 @@ class AttendeeControllerTests {
 		assertTrue(controller.checkInPage(token).contains("Confirm check-in"));
 		assertTrue(controller.checkIn(token).contains("Checked in"));
 		assertTrue(controller.checkInPage(token).contains("Already checked in"));
+	}
+
+	@Test
+	void unknownAttendeeIdDoesNotValidate() {
+		assertNull(attendeeService.findByToken("not-a-real-attendee"));
 	}
 }

@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS attendees (
+    token VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    checked_in BOOLEAN NOT NULL DEFAULT FALSE,
+    checked_in_at TIMESTAMP WITH TIME ZONE
+);
