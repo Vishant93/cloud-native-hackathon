@@ -86,10 +86,15 @@ public class AttendeeController {
 
 	@PostMapping("/api/attendees/{token}/check-in")
 	public CheckInResponse checkInApi(@PathVariable String token) {
-		var attendee = attendeeService.checkIn(token);
-		if (attendee == null) {
+		var existing = attendeeService.findByToken(token);
+		if (existing == null) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Attendee ID is invalid");
 		}
+		if (existing.checkedIn()) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT,
+					"Attendee already checked in at " + existing.checkedInAt());
+		}
+		var attendee = attendeeService.checkIn(token);
 
 		return new CheckInResponse(
 				attendee.token(),

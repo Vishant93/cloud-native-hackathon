@@ -91,4 +91,14 @@ class AttendeeControllerTests {
 				() -> controller.checkInApi("not-a-real-attendee"));
 		assertEquals(404, exception.getStatusCode().value());
 	}
+
+	@Test
+	void apiCheckInRejectsRepeatCheckIn() throws Exception {
+		var registration = controller.register(new AttendeeController.RegistrationRequest("Casey"));
+		String token = registration.getBody().attendeeId();
+		controller.checkInApi(token);
+
+		var exception = assertThrows(ResponseStatusException.class, () -> controller.checkInApi(token));
+		assertEquals(409, exception.getStatusCode().value());
+	}
 }
