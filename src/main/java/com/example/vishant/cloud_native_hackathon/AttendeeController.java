@@ -4,6 +4,10 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.Base64;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -35,18 +39,20 @@ public class AttendeeController {
 	}
 
 	@PostMapping("/api/attendees")
-	public ResponseEntity<RegistrationResponse> register(@RequestBody RegistrationRequest request)
+	public ResponseEntity<RegistrationResponse> register(@Valid @RequestBody RegistrationRequest request)
 			throws WriterException, IOException {
-		if (request == null || request.name() == null || request.name().isBlank()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Attendee name must not be blank");
+		if (request == null || request.name() == null || request.name().isBlank()
+				|| request.email() == null || request.email().isBlank()) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Attendee name and email must not be blank");
 		}
 
-		var attendee = attendeeService.register(request.name());
+		var attendee = attendeeService.register(request.name(), request.email());
 		String checkInUrl = baseUrl + "/check-in/" + attendee.token();
 		byte[] png = qrCodeService.generatePng(checkInUrl, 300, 300);
 		var response = new RegistrationResponse(
 				attendee.token(),
 				attendee.name(),
+				attendee.email(),
 				checkInUrl,
 				Base64.getEncoder().encodeToString(png));
 		return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -103,10 +109,17 @@ public class AttendeeController {
 				attendee.checkedInAt());
 	}
 
-	public record RegistrationRequest(String name) {
+	public record RegistrationRequest(
+			@NotBlank @Size(max = 255) String name,
+			@NotBlank @Email @Size(max = 320) String email) {
 	}
 
-	public record RegistrationResponse(String attendeeId, String name, String checkInUrl, String qrCodePngBase64) {
+	public record RegistrationResponse(
+			String attendeeId,
+			String name,
+			String email,
+			String checkInUrl,
+			String qrCodePngBase64) {
 	}
 
 	public record CheckInResponse(String attendeeId, String name, boolean checkedIn, Instant checkedInAt) {
