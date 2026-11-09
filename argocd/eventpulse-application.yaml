@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: eventpulse
+  namespace: team-vishant
+spec:
+  project: team-vishant
+  source:
+    repoURL: https://github.com/Vishant93/cloud-native-hackathon.git
+    targetRevision: deploy/eventpulse
+    path: deploy
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: team-vishant
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
