@@ -69,6 +69,16 @@ function extractAttendeeToken(decodedText: string): string | null {
   }
 }
 
+function formatCheckInTime(value: string | null): string {
+  if (!value) {
+    return "Just now";
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
+
 async function submitCheckIn(token: string): Promise<CheckInResult> {
   const response = await fetch(
     `${API_BASE_URL}/attendees/${encodeURIComponent(token)}/check-in`,
@@ -348,13 +358,35 @@ export default function App() {
               <li><span>02</span><div><strong>Scan the attendee QR</strong><small>Keep the code inside the camera frame.</small></div></li>
               <li><span>03</span><div><strong>Confirm the result</strong><small>Attendee details are validated by the server.</small></div></li>
             </ol>
-            {scanState.kind === "success" && (
-              <div className="attendee-result">
-                <span className="result-check" aria-hidden="true">✓</span>
-                <div>
-                  <small>CHECKED IN</small>
-                  <strong>{scanState.attendee.name}</strong>
-                  <code>{scanState.attendee.attendeeId}</code>
+            {scanState.kind !== "idle" && (
+              <div className={`verification-panel verification-${scanState.kind}`} role="status" aria-live="polite">
+                <span className="verification-icon" aria-hidden="true">
+                  {scanState.kind === "success" ? "✓" : scanState.kind === "error" ? "!" : "…"}
+                </span>
+                <div className="verification-content">
+                  <p className="eyebrow">
+                    {scanState.kind === "success"
+                      ? "VERIFIED"
+                      : scanState.kind === "error"
+                        ? "NOT VERIFIED"
+                        : "VERIFYING"}
+                  </p>
+                  {scanState.kind === "success" ? (
+                    <>
+                      <h3>Check-in complete</h3>
+                      <p className="verification-name">{scanState.attendee.name}</p>
+                      <p className="verification-time">
+                        Checked in <time dateTime={scanState.attendee.checkedInAt ?? undefined}>
+                          {formatCheckInTime(scanState.attendee.checkedInAt)}
+                        </time>
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <h3>{scanState.kind === "error" ? "Check-in unsuccessful" : "Checking ticket…"}</h3>
+                      <p className="verification-message">{scanState.message}</p>
+                    </>
+                  )}
                 </div>
               </div>
             )}

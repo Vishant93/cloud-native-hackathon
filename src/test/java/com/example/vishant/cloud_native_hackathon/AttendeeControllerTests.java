@@ -75,7 +75,10 @@ class AttendeeControllerTests {
 		assertTrue(controller.checkInPage(token).contains(
 				"action=\"https://event.example/check-in/" + token + "\""));
 		assertTrue(controller.checkInPage(token).contains("Confirm check-in"));
-		assertTrue(controller.checkIn(token).contains("Checked in"));
+		assertTrue(controller.checkInPage(token).contains("name=\"viewport\""));
+		assertTrue(controller.checkInPage(token).contains("class=\"card\""));
+		assertTrue(controller.checkInPage(token).contains("Welcome, Alex"));
+		assertTrue(controller.checkIn(token).contains("CHECK-IN CONFIRMED"));
 		assertTrue(controller.checkInPage(token).contains("Already checked in"));
 		assertTrue(controller.checkIn(token).contains("Already checked in"));
 	}
