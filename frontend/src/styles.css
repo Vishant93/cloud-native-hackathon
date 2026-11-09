@@ -94,6 +94,59 @@ button, input { font: inherit; }
   color: #16221a;
 }
 
+.attendance-dashboard {
+  padding: 42px 0 30px;
+}
+
+.dashboard-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.dashboard-heading h2 {
+  font-size: 24px;
+  letter-spacing: -.04em;
+}
+
+.refresh-button {
+  padding: 10px 14px;
+  border: 1px solid #54637a;
+  border-radius: 8px;
+  background: #243248;
+  color: #eff5ff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.refresh-button:disabled { opacity: .65; cursor: wait; }
+
+.attendance-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.metric-card {
+  min-height: 180px;
+  padding: 25px;
+  border: 1px solid #2a374b;
+  border-radius: 16px;
+  background: rgba(23, 34, 51, .88);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, .13);
+}
+
+.metric-card strong, .metric-card span { display: block; }
+.metric-card strong { margin: 15px 0 4px; color: #e8edf5; font-size: 44px; letter-spacing: -.05em; }
+.metric-card span { color: #9eacbd; font-size: 12px; }
+.metric-checked-in strong { color: #c9f36a; }
+.metric-remaining strong { color: #84c9ff; }
+.dashboard-message, .dashboard-error { padding: 20px; color: #aab6c7; }
+.dashboard-error { color: #ff9a9a; }
+
 .registration-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(270px, .8fr);
@@ -326,6 +379,10 @@ footer {
 @media (max-width: 760px) {
   .page-shell { width: min(100% - 28px, 560px); }
   .topbar { min-height: 86px; }
+  .attendance-dashboard { padding-top: 22px; }
+  .attendance-metrics { grid-template-columns: 1fr; gap: 12px; }
+  .metric-card { min-height: 135px; padding: 20px; }
+  .metric-card strong { margin-top: 8px; font-size: 38px; }
   .registration-layout { grid-template-columns: 1fr; gap: 15px; padding-top: 22px; }
   .registration-card, .registration-aside, .registration-result { padding: 22px 18px; }
   .scanner-layout { grid-template-columns: 1fr; gap: 15px; padding-top: 22px; }
