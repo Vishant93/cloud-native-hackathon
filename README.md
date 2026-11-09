@@ -163,12 +163,37 @@ npm run build
 
 The backend tests use H2 and disable Kafka background processing; the outbox itself is verified in tests without requiring Docker or a broker.
 
+## k6 load test
+
+Install [k6](https://grafana.com/docs/k6/latest/set-up/install-k6/) and start the backend (and Kafka if you want to observe event publication). From the repository root, run the conservative local smoke load:
+
+```powershell
+k6 run tests\load\eventpulse.js
+```
+
+Or, with Docker Desktop, run k6 in a container without installing it on the host:
+
+```powershell
+docker run --rm -v "${PWD}\tests\load:/scripts" grafana/k6:latest run -e BASE_URL=http://host.docker.internal:8080 /scripts/eventpulse.js
+```
+
+By default, the script targets `http://localhost:8080`, runs one virtual user for 30 seconds, and exercises registration, check-in, and the attendance summary. Each iteration creates and checks in a new attendee, so use a local or disposable database; test records and outbox events are not automatically removed.
+
+Adjust the target and load explicitly when needed:
+
+```powershell
+k6 run -e BASE_URL=http://localhost:8080 -e VUS=5 -e DURATION=1m tests\load\eventpulse.js
+```
+
+`BASE_URL` may include an application context path, for example `https://vishant.cnh.radarhq.io/eventpulse`. Only run load tests against systems you own or are authorized to test. Coordinate before testing shared environments, and do not direct the script at production without an approved test plan. The script checks successful API responses, a 95th-percentile HTTP duration below 2 seconds, and an HTTP failure rate below 1%; k6 exits non-zero if a threshold is missed.
+
 ## Repository layout
 
 ```text
 .
 ├── docker-compose.kafka.yml   # Local single-node Kafka broker
 ├── frontend/src/              # Registration, scanner, dashboard, and styles
+├── tests/load/                # k6 API load test
 ├── src/main/java/             # Spring Boot API, services, and Kafka integration
 ├── src/main/resources/        # Application profiles and SQL schema
 ├── src/test/java/             # Backend tests
@@ -178,4 +203,4 @@ The backend tests use H2 and disable Kafka background processing; the outbox its
 
 ## Reliability roadmap
 
-Kafka check-in events and a retryable outbox are implemented. The broader hackathon scenarios — traffic spikes, injected database delays/outages, Kafka consumer lag/failure, OpenTelemetry export to Dash0, Agent0 investigations, Sonar analysis, and k6 load testing — remain follow-up work.
+Kafka check-in events and a retryable outbox are implemented. The broader hackathon scenarios — traffic spikes, injected database delays/outages, Kafka consumer lag/failure, OpenTelemetry export to Dash0, Agent0 investigations, and Sonar analysis — remain follow-up work.
