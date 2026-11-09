@@ -76,10 +76,11 @@ public class AttendeeController {
 					+ "</p></body></html>";
 		}
 
+		String confirmationUrl = HtmlUtils.htmlEscape(baseUrl + "/check-in/" + attendee.token());
 		return "<!doctype html><html><body><h1>Check in</h1><p>"
 				+ HtmlUtils.htmlEscape(attendee.name())
-				+ "</p><form method=\"post\" action=\"/check-in/"
-				+ attendee.token()
+				+ "</p><form method=\"post\" action=\""
+				+ confirmationUrl
 				+ "\"><button type=\"submit\">Confirm check-in</button></form></body></html>";
 	}
 

@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: team-vishant
+resources:
+  - deployment.yaml
+  - service.yaml
+  - httproute.yaml
+  - kafka.yaml
+images:
+  - name: eventpulse-app
+    newName: ghcr.io/vishant93/cloud-native-hackathon
+    newTag: 2a2732f

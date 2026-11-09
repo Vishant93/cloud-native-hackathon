@@ -43,6 +43,7 @@ type View = "register" | "scanner" | "dashboard";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const API_BASE_URL = `${import.meta.env.BASE_URL}api`;
 
 async function readErrorMessage(response: Response, fallback: string): Promise<string> {
   try {
@@ -61,7 +62,7 @@ function extractAttendeeToken(decodedText: string): string | null {
 
   try {
     const url = new URL(value);
-    const match = url.pathname.match(/^\/check-in\/([0-9a-f-]{36})\/?$/i);
+    const match = url.pathname.match(/(?:^|\/)check-in\/([0-9a-f-]{36})\/?$/i);
     return match && UUID_PATTERN.test(match[1]) ? match[1] : null;
   } catch {
     return null;
@@ -70,7 +71,7 @@ function extractAttendeeToken(decodedText: string): string | null {
 
 async function submitCheckIn(token: string): Promise<CheckInResult> {
   const response = await fetch(
-    `/api/attendees/${encodeURIComponent(token)}/check-in`,
+    `${API_BASE_URL}/attendees/${encodeURIComponent(token)}/check-in`,
     { method: "POST" },
   );
 
@@ -82,7 +83,7 @@ async function submitCheckIn(token: string): Promise<CheckInResult> {
 }
 
 async function submitRegistration(name: string, email: string): Promise<RegistrationResult> {
-  const response = await fetch("/api/attendees", {
+  const response = await fetch(`${API_BASE_URL}/attendees`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, email }),
@@ -98,7 +99,7 @@ async function submitRegistration(name: string, email: string): Promise<Registra
 }
 
 async function fetchAttendanceSummary(): Promise<AttendanceSummary> {
-  const response = await fetch("/api/attendees/summary");
+  const response = await fetch(`${API_BASE_URL}/attendees/summary`);
   if (!response.ok) {
     throw new Error(
       await readErrorMessage(response, `Could not load attendance (${response.status})`),
