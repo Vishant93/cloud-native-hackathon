@@ -12,6 +12,7 @@ EventPulse is a QR-based conference registration and attendance application. Att
 - Attendance totals for registered, checked-in, and remaining attendees.
 - Durable database outbox and Kafka publication of successful check-ins.
 - Kafka consumer that processes and logs check-in events.
+- OpenTelemetry Collector receives k6 metrics and scrapes application metrics, then exports both to Dash0.
 - H2 for local development; optional PostgreSQL profile.
 
 ## Architecture
@@ -20,6 +21,9 @@ EventPulse is a QR-based conference registration and attendance application. Att
 flowchart LR
     UI["React + Vite<br/>Registration · Scanner · Dashboard"]
     API["Spring Boot REST API<br/>Java 21"]
+    k6["k6 load test"]
+    OTel["OpenTelemetry Collector<br/>Prometheus scrape + k6 OTLP · OTLP export"]
+    Dash0["Dash0 · Agent0"]
     DB[("JDBC database<br/>H2 by default · PostgreSQL profile")]
     Outbox[("Check-in outbox")]
     Kafka[("Kafka<br/>eventpulse.checkins")]
@@ -29,6 +33,9 @@ flowchart LR
     API --> Outbox
     Outbox -->|async publish| Kafka
     Kafka --> Consumer
+    API -->|/actuator/prometheus| OTel
+    k6 -->|OTLP/HTTP metrics| OTel
+    OTel -->|OTLP/HTTP metrics| Dash0
 ```
 
 Check-in state and its outbox event are written in one database transaction. A background relay publishes pending events and marks them published only after Kafka acknowledges them. If Kafka is unavailable, the check-in request still succeeds and the event remains queued for retry. This is at-least-once delivery: consumers should use `eventId` for deduplication if they perform non-idempotent work.
@@ -118,6 +125,55 @@ $env:DATABASE_PASSWORD = "your-local-password"
 
 Kafka settings can be changed with `KAFKA_BOOTSTRAP_SERVERS`, `KAFKA_CHECK_IN_TOPIC`, and `KAFKA_OUTBOX_POLL_INTERVAL`. Defaults are `localhost:9092`, `eventpulse.checkins`, and `1000` milliseconds.
 
+### Send metrics to Dash0 and investigate with Agent0
+
+The app exposes Micrometer/Prometheus metrics at `http://localhost:8080/actuator/prometheus`. The local OpenTelemetry Collector scrapes that endpoint every 10 seconds, adds the `service.name=eventpulse` and `deployment.environment.name=local` resource attributes, and forwards metrics to Dash0 over OTLP/HTTP. It also accepts k6's OTLP/HTTP metrics on `localhost:4318`, preserving k6's own service identity. That receiver is bound to the local machine only. The scrape endpoint is intended for local collection; do not expose it publicly.
+
+1. In Dash0, use the onboarding/integration instructions for your organization to obtain the OTLP base endpoint and an authorization token. Set these in the PowerShell terminal where you will run Compose; do not commit the token:
+
+   ```powershell
+   $env:DASH0_OTLP_ENDPOINT = "https://<your-region-ingest-endpoint>"
+   $env:DASH0_AUTH_TOKEN = "<your-dash0-token>"
+   $env:DASH0_DATASET = "default"
+   docker compose -f docker-compose.otel.yml up -d
+   ```
+
+   `DASH0_OTLP_ENDPOINT` is the base endpoint from Dash0, without a signal path such as `/v1/metrics`. `DASH0_DATASET` defaults to `default` if you omit it. Confirm the collector is healthy with `docker compose -f docker-compose.otel.yml logs -f otel-collector`.
+
+2. Start the backend, then configure k6 to send its run metrics to the collector. With k6 installed on Windows, set the OTLP options and run a test:
+
+   ```powershell
+   $env:K6_OTEL_EXPORTER_PROTOCOL = "http/protobuf"
+   $env:K6_OTEL_HTTP_EXPORTER_ENDPOINT = "localhost:4318"
+   $env:K6_OTEL_HTTP_EXPORTER_INSECURE = "true"
+   $env:K6_OTEL_SERVICE_NAME = "eventpulse-load-test"
+   k6 run --out opentelemetry --tag test_type=load tests\load\eventpulse.js
+   ```
+
+   The test's response-time percentiles, request rates, failures, and checks are exported as OTLP metrics. The backend's HTTP, JVM, and process metrics are scraped separately. Keep the collector running while k6 runs so it can receive the load-generator metrics and scrape the app.
+
+   If you use Docker Desktop for k6 instead, attach the k6 container to the Collector network and send to the Collector service name:
+
+   ```powershell
+   docker run --rm --network eventpulse-observability -v "${PWD}\tests\load:/scripts" `
+     -e K6_OTEL_EXPORTER_PROTOCOL=http/protobuf `
+     -e K6_OTEL_HTTP_EXPORTER_ENDPOINT=otel-collector:4318 `
+     -e K6_OTEL_HTTP_EXPORTER_INSECURE=true `
+     -e K6_OTEL_SERVICE_NAME=eventpulse-load-test `
+     grafana/k6:latest run --out opentelemetry --tag test_type=load `
+     -e BASE_URL=http://host.docker.internal:8080 /scripts/eventpulse.js
+   ```
+
+3. In Dash0, open Agent0 and ask it to investigate `eventpulse` and `eventpulse-load-test` for the time window of the k6 run. For example: “Investigate EventPulse during the most recent k6 load test. Correlate the eventpulse-load-test request rate, latency, errors, and checks with the eventpulse service's request latency, errors, and JVM/process metrics. Explain likely bottlenecks using the available telemetry.” Agent0 uses the telemetry already ingested into Dash0; it is not automatically invoked by the local k6 command.
+
+Stop the collector when finished:
+
+```powershell
+docker compose -f docker-compose.otel.yml down
+```
+
+This local setup exports metrics, not traces or logs. Dash0's onboarding-provided endpoint, token, and selected dataset are organization-specific; the application does not include credentials.
+
 ## Kubernetes demo deployment
 
 The `deploy/` folder contains a separate Kustomize deployment for the `team-vishant` namespace. It serves the React build from Spring Boot, runs a single Kafka broker, and uses a single application replica so the local H2 database is not concurrently opened by multiple pods. The app is mounted at the `/eventpulse` context path on `https://vishant.cnh.radarhq.io`, leaving the existing app's root route intact. The Argo CD application definition is in `argocd/eventpulse-application.yaml`; the GitHub Actions workflow builds and publishes the image to GHCR on pushes to the `deploy/eventpulse` branch, then updates the image tag for Argo CD.
@@ -192,6 +248,8 @@ k6 run -e BASE_URL=http://localhost:8080 -e VUS=5 -e DURATION=1m tests\load\even
 ```text
 .
 ├── docker-compose.kafka.yml   # Local single-node Kafka broker
+├── docker-compose.otel.yml    # Local OpenTelemetry Collector for Dash0 metrics
+├── otel-collector-config.yaml # Scrape application metrics and export to Dash0
 ├── frontend/src/              # Registration, scanner, dashboard, and styles
 ├── tests/load/                # k6 API load test
 ├── src/main/java/             # Spring Boot API, services, and Kafka integration
