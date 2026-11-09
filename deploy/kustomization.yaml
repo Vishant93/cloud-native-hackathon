@@ -9,4 +9,4 @@ resources:
 images:
   - name: eventpulse-app
     newName: ghcr.io/vishant93/cloud-native-hackathon
-    newTag: ec02b64
+    newTag: e114199
