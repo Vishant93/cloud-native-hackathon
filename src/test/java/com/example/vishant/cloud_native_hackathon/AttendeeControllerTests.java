@@ -45,13 +45,15 @@ class AttendeeControllerTests {
 
 	@Test
 	void eachAttendeeGetsUniqueCheckInUrlAndQrCode() throws Exception {
-		var first = controller.register(new AttendeeController.RegistrationRequest("Alex"));
-		var second = controller.register(new AttendeeController.RegistrationRequest("Sam"));
+		var first = controller.register(new AttendeeController.RegistrationRequest("Alex", "alex@example.com"));
+		var second = controller.register(new AttendeeController.RegistrationRequest("Sam", "sam@example.com"));
 
 		assertNotEquals(first.getBody().attendeeId(), second.getBody().attendeeId());
 		assertNotEquals(first.getBody().checkInUrl(), second.getBody().checkInUrl());
+		assertEquals("alex@example.com", first.getBody().email());
 		assertEquals("https://event.example/check-in/" + first.getBody().attendeeId(),
 				first.getBody().checkInUrl());
+		assertEquals("alex@example.com", attendeeService.findByToken(first.getBody().attendeeId()).email());
 
 		var png = Base64.getDecoder().decode(first.getBody().qrCodePngBase64());
 		var image = ImageIO.read(new ByteArrayInputStream(png));
@@ -61,7 +63,7 @@ class AttendeeControllerTests {
 
 	@Test
 	void attendeeMustConfirmCheckInFromScannedLink() throws Exception {
-		var registration = controller.register(new AttendeeController.RegistrationRequest("Alex"));
+		var registration = controller.register(new AttendeeController.RegistrationRequest("Alex", "alex@example.com"));
 		String token = registration.getBody().attendeeId();
 
 		assertTrue(controller.checkInPage(token).contains("Confirm check-in"));
@@ -76,7 +78,7 @@ class AttendeeControllerTests {
 
 	@Test
 	void apiCheckInReturnsAttendeeAndPersistsCheckIn() throws Exception {
-		var registration = controller.register(new AttendeeController.RegistrationRequest("Jordan"));
+		var registration = controller.register(new AttendeeController.RegistrationRequest("Jordan", "jordan@example.com"));
 		var result = controller.checkInApi(registration.getBody().attendeeId());
 
 		assertEquals(registration.getBody().attendeeId(), result.attendeeId());
@@ -94,7 +96,7 @@ class AttendeeControllerTests {
 
 	@Test
 	void apiCheckInRejectsRepeatCheckIn() throws Exception {
-		var registration = controller.register(new AttendeeController.RegistrationRequest("Casey"));
+		var registration = controller.register(new AttendeeController.RegistrationRequest("Casey", "casey@example.com"));
 		String token = registration.getBody().attendeeId();
 		controller.checkInApi(token);
 

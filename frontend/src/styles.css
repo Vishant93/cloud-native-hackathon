@@ -68,6 +68,119 @@ button, input { font: inherit; }
   letter-spacing: .1em;
 }
 
+.view-switch {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+  padding: 4px;
+  border: 1px solid #354258;
+  border-radius: 10px;
+  background: #141f30;
+}
+
+.view-button {
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #aab6c7;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.view-button.active {
+  background: #c9f36a;
+  color: #16221a;
+}
+
+.registration-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(270px, .8fr);
+  gap: 22px;
+  align-items: stretch;
+  padding: 42px 0 30px;
+}
+
+.registration-card, .registration-aside, .registration-result {
+  border: 1px solid #2a374b;
+  border-radius: 17px;
+  background: rgba(23, 34, 51, .88);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, .13);
+}
+
+.registration-card { padding: 32px; }
+.registration-card h2, .registration-result h2, .registration-aside h2 {
+  font-size: 24px;
+  letter-spacing: -.04em;
+}
+
+.registration-intro, .registration-aside p, .qr-help {
+  color: #9eacbd;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.registration-intro { max-width: 410px; margin: 11px 0 25px; }
+
+.registration-form { display: grid; gap: 10px; }
+.registration-form label { margin-top: 5px; color: #c6d0dd; font-size: 12px; font-weight: 600; }
+.registration-form input {
+  width: 100%;
+  padding: 12px 13px;
+  border: 1px solid #39485e;
+  border-radius: 8px;
+  outline: none;
+  background: #111b2a;
+  color: #e8edf5;
+}
+
+.registration-form input:focus { border-color: #c9f36a; box-shadow: 0 0 0 3px rgba(201, 243, 106, .12); }
+.registration-form input::placeholder { color: #6f7e92; }
+
+.submit-button {
+  margin-top: 13px;
+  padding: 12px;
+  border: 0;
+  border-radius: 8px;
+  background: #c9f36a;
+  color: #16221a;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.submit-button:disabled { opacity: .65; cursor: wait; }
+.registration-error { margin: 16px 0 0; color: #ff9a9a; font-size: 13px; }
+
+.registration-aside, .registration-result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 30px;
+}
+
+.aside-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 20px;
+  border-radius: 50%;
+  background: #c9f36a;
+  color: #16221a;
+  font-weight: 800;
+}
+
+.registration-aside p { margin-bottom: 0; }
+.registration-result { align-items: center; text-align: center; }
+.registration-result .eyebrow { align-self: stretch; }
+.registration-result h2 { margin: 3px 0 0; }
+.result-email { margin: 8px 0 16px; color: #aab6c7; font-size: 12px; }
+.registration-qr { width: 200px; height: 200px; padding: 8px; border-radius: 10px; background: #fff; }
+.qr-help { margin: 13px 0 8px; text-align: center; }
+.check-in-link { color: #c9f36a; font-size: 12px; }
+
 .scanner-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(270px, .8fr);
@@ -213,6 +326,8 @@ footer {
 @media (max-width: 760px) {
   .page-shell { width: min(100% - 28px, 560px); }
   .topbar { min-height: 86px; }
+  .registration-layout { grid-template-columns: 1fr; gap: 15px; padding-top: 22px; }
+  .registration-card, .registration-aside, .registration-result { padding: 22px 18px; }
   .scanner-layout { grid-template-columns: 1fr; gap: 15px; padding-top: 22px; }
   .scanner-card { padding: 18px; }
   .details-card { padding: 22px 18px; }
@@ -220,7 +335,8 @@ footer {
 }
 
 @media (max-width: 420px) {
-  .staff-badge { padding: 7px 8px; font-size: 8px; }
+  .view-switch { gap: 2px; padding: 3px; }
+  .view-button { padding: 8px 9px; font-size: 10px; }
   .card-heading { align-items: flex-start; }
   .live-indicator { font-size: 8px; }
 }

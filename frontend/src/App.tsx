@@ -1,5 +1,5 @@
 import { Html5QrcodeScanner } from "html5-qrcode";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 type CheckInResult = {
   attendeeId: string;
@@ -8,14 +8,39 @@ type CheckInResult = {
   checkedInAt: string | null;
 };
 
+type RegistrationResult = {
+  attendeeId: string;
+  name: string;
+  email: string;
+  checkInUrl: string;
+  qrCodePngBase64: string;
+};
+
 type ScanState =
   | { kind: "idle"; message: string }
   | { kind: "loading"; message: string }
   | { kind: "success"; message: string; attendee: CheckInResult }
   | { kind: "error"; message: string };
 
+type RegistrationState =
+  | { kind: "idle" }
+  | { kind: "loading" }
+  | { kind: "success"; attendee: RegistrationResult }
+  | { kind: "error"; message: string };
+
+type View = "register" | "scanner";
+
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function readErrorMessage(response: Response, fallback: string): Promise<string> {
+  try {
+    const problem = (await response.json()) as { detail?: string; message?: string };
+    return problem.detail ?? problem.message ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 function extractAttendeeToken(decodedText: string): string | null {
   const value = decodedText.trim();
@@ -39,25 +64,58 @@ async function submitCheckIn(token: string): Promise<CheckInResult> {
   );
 
   if (!response.ok) {
-    let message = `Check-in failed (${response.status})`;
-    try {
-      const problem = (await response.json()) as { detail?: string; message?: string };
-      message = problem.detail ?? problem.message ?? message;
-    } catch {
-      // Keep the HTTP status message when the server response is not JSON.
-    }
-    throw new Error(message);
+    throw new Error(await readErrorMessage(response, `Check-in failed (${response.status})`));
   }
 
   return (await response.json()) as CheckInResult;
 }
 
+async function submitRegistration(name: string, email: string): Promise<RegistrationResult> {
+  const response = await fetch("/api/attendees", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, email }),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      await readErrorMessage(response, `Registration failed (${response.status})`),
+    );
+  }
+
+  return (await response.json()) as RegistrationResult;
+}
+
 export default function App() {
+  const [view, setView] = useState<View>("register");
+  const [registrationState, setRegistrationState] = useState<RegistrationState>({
+    kind: "idle",
+  });
   const [scanState, setScanState] = useState<ScanState>({
     kind: "idle",
     message: "Point the camera at an attendee QR code.",
   });
   const processingRef = useRef(false);
+
+  const handleRegistration = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const name = String(formData.get("name") ?? "").trim();
+    const email = String(formData.get("email") ?? "").trim();
+    setRegistrationState({ kind: "loading" });
+
+    try {
+      const attendee = await submitRegistration(name, email);
+      setRegistrationState({ kind: "success", attendee });
+      form.reset();
+    } catch (error) {
+      setRegistrationState({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Unable to register attendee.",
+      });
+    }
+  };
 
   const handleScan = useCallback(async (decodedText: string) => {
     if (processingRef.current) {
@@ -93,6 +151,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (view !== "scanner") {
+      return;
+    }
+
     const scanner = new Html5QrcodeScanner(
       "qr-reader",
       { fps: 10, qrbox: { width: 250, height: 250 }, rememberLastUsedCamera: true },
@@ -105,7 +167,7 @@ export default function App() {
         console.error("Could not stop the QR scanner cleanly", error);
       });
     };
-  }, [handleScan]);
+  }, [handleScan, view]);
 
   return (
     <main className="page-shell">
@@ -113,50 +175,143 @@ export default function App() {
         <div className="brand-mark" aria-hidden="true">EP</div>
         <div>
           <p className="eyebrow">EVENTPULSE</p>
-          <h1>Attendee check-in</h1>
+          <h1>Event registration</h1>
         </div>
-        <span className="staff-badge">STAFF SCANNER</span>
+        <nav className="view-switch" aria-label="Event tools">
+          <button
+            type="button"
+            className={view === "register" ? "view-button active" : "view-button"}
+            aria-current={view === "register" ? "page" : undefined}
+            onClick={() => setView("register")}
+          >
+            Register
+          </button>
+          <button
+            type="button"
+            className={view === "scanner" ? "view-button active" : "view-button"}
+            aria-current={view === "scanner" ? "page" : undefined}
+            onClick={() => setView("scanner")}
+          >
+            Staff scanner
+          </button>
+        </nav>
       </header>
 
-      <section className="scanner-layout" aria-label="Attendee QR scanner">
-        <div className="scanner-card">
-          <div className="card-heading">
-            <div>
-              <p className="eyebrow">SCAN TICKET</p>
-              <h2>Verify attendee</h2>
-            </div>
-            <span className="live-indicator"><span /> CAMERA READY</span>
-          </div>
-          <div id="qr-reader" className="qr-reader" />
-          <p className={`status-message status-${scanState.kind}`} role="status" aria-live="polite">
-            <span className="status-icon" aria-hidden="true">
-              {scanState.kind === "success" ? "✓" : scanState.kind === "error" ? "!" : scanState.kind === "loading" ? "…" : "i"}
-            </span>
-            {scanState.message}
-          </p>
-        </div>
+      {view === "register" ? (
+        <section className="registration-layout" aria-labelledby="registration-title">
+          <div className="registration-card">
+            <p className="eyebrow">JOIN THE EVENT</p>
+            <h2 id="registration-title">Reserve your spot</h2>
+            <p className="registration-intro">
+              Enter your details to register and receive your personal check-in QR code.
+            </p>
+            <form className="registration-form" onSubmit={(event) => void handleRegistration(event)}>
+              <label htmlFor="attendee-name">Full name</label>
+              <input
+                id="attendee-name"
+                name="name"
+                type="text"
+                autoComplete="name"
+                maxLength={255}
+                placeholder="Your name"
+                required
+              />
+              <label htmlFor="attendee-email">Email address</label>
+              <input
+                id="attendee-email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                maxLength={320}
+                placeholder="you@example.com"
+                required
+              />
+              <button
+                className="submit-button"
+                type="submit"
+                disabled={registrationState.kind === "loading"}
+              >
+                {registrationState.kind === "loading" ? "Registering…" : "Register"}
+              </button>
+            </form>
 
-        <aside className="details-card">
-          <p className="eyebrow">CHECK-IN FLOW</p>
-          <h2>Ready at the door</h2>
-          <ol className="steps">
-            <li><span>01</span><div><strong>Allow camera access</strong><small>Use your device camera when prompted.</small></div></li>
-            <li><span>02</span><div><strong>Scan the attendee QR</strong><small>Keep the code inside the camera frame.</small></div></li>
-            <li><span>03</span><div><strong>Confirm the result</strong><small>Attendee details are validated by the server.</small></div></li>
-          </ol>
-          {scanState.kind === "success" && (
-            <div className="attendee-result">
-              <span className="result-check" aria-hidden="true">✓</span>
-              <div>
-                <small>CHECKED IN</small>
-                <strong>{scanState.attendee.name}</strong>
-                <code>{scanState.attendee.attendeeId}</code>
-              </div>
-            </div>
+            {registrationState.kind === "error" && (
+              <p className="registration-error" role="alert">{registrationState.message}</p>
+            )}
+          </div>
+
+          {registrationState.kind === "success" ? (
+            <aside className="registration-result" aria-live="polite">
+              <p className="eyebrow">REGISTRATION CONFIRMED</p>
+              <h2>You’re on the list, {registrationState.attendee.name}.</h2>
+              <p className="result-email">{registrationState.attendee.email}</p>
+              <img
+                className="registration-qr"
+                src={`data:image/png;base64,${registrationState.attendee.qrCodePngBase64}`}
+                alt={`Check-in QR code for ${registrationState.attendee.name}`}
+              />
+              <p className="qr-help">Save this QR code and present it at the entrance.</p>
+              <a
+                className="check-in-link"
+                href={registrationState.attendee.checkInUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open check-in link
+              </a>
+            </aside>
+          ) : (
+            <aside className="registration-aside">
+              <span className="aside-icon" aria-hidden="true">✓</span>
+              <h2>Your ticket, ready to scan</h2>
+              <p>
+                After registration, your unique QR code will be shown here. Staff can scan it
+                at the event entrance.
+              </p>
+            </aside>
           )}
-        </aside>
-      </section>
-      <footer>Scan securely · Attendee IDs are verified by EventPulse</footer>
+        </section>
+      ) : (
+        <section className="scanner-layout" aria-label="Attendee QR scanner">
+          <div className="scanner-card">
+            <div className="card-heading">
+            <div>
+                <p className="eyebrow">SCAN TICKET</p>
+                <h2>Verify attendee</h2>
+              </div>
+              <span className="live-indicator"><span /> CAMERA READY</span>
+            </div>
+            <div id="qr-reader" className="qr-reader" />
+            <p className={`status-message status-${scanState.kind}`} role="status" aria-live="polite">
+              <span className="status-icon" aria-hidden="true">
+                {scanState.kind === "success" ? "✓" : scanState.kind === "error" ? "!" : scanState.kind === "loading" ? "…" : "i"}
+              </span>
+              {scanState.message}
+            </p>
+          </div>
+
+          <aside className="details-card">
+            <p className="eyebrow">CHECK-IN FLOW</p>
+            <h2>Ready at the door</h2>
+            <ol className="steps">
+              <li><span>01</span><div><strong>Allow camera access</strong><small>Use your device camera when prompted.</small></div></li>
+              <li><span>02</span><div><strong>Scan the attendee QR</strong><small>Keep the code inside the camera frame.</small></div></li>
+              <li><span>03</span><div><strong>Confirm the result</strong><small>Attendee details are validated by the server.</small></div></li>
+            </ol>
+            {scanState.kind === "success" && (
+              <div className="attendee-result">
+                <span className="result-check" aria-hidden="true">✓</span>
+                <div>
+                  <small>CHECKED IN</small>
+                  <strong>{scanState.attendee.name}</strong>
+                  <code>{scanState.attendee.attendeeId}</code>
+                </div>
+              </div>
+            )}
+          </aside>
+        </section>
+      )}
+      <footer>EventPulse · Attendee details are stored securely</footer>
     </main>
   );
 }

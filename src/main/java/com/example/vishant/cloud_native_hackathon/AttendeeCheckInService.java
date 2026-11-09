@@ -20,24 +20,29 @@ public class AttendeeCheckInService {
 		this.jdbcTemplate = jdbcTemplate;
 	}
 
-	public Attendee register(String name) {
+	public Attendee register(String name, String email) {
 		if (name == null || name.isBlank()) {
 			throw new IllegalArgumentException("Attendee name must not be blank");
+		}
+		if (email == null || email.isBlank()) {
+			throw new IllegalArgumentException("Attendee email must not be blank");
 		}
 
 		String token = UUID.randomUUID().toString();
 		String normalizedName = name.trim();
+		String normalizedEmail = email.trim();
 		jdbcTemplate.update(
-				"INSERT INTO attendees (token, name, checked_in) VALUES (?, ?, FALSE)",
+				"INSERT INTO attendees (token, name, email, checked_in) VALUES (?, ?, ?, FALSE)",
 				token,
-				normalizedName);
-		var attendee = new Attendee(token, normalizedName, false, null);
+				normalizedName,
+				normalizedEmail);
+		var attendee = new Attendee(token, normalizedName, normalizedEmail, false, null);
 		return attendee;
 	}
 
 	public Attendee findByToken(String token) {
 		return jdbcTemplate.query(
-				"SELECT token, name, checked_in, checked_in_at FROM attendees WHERE token = ?",
+				"SELECT token, name, email, checked_in, checked_in_at FROM attendees WHERE token = ?",
 				ATTENDEE_ROW_MAPPER,
 				token).stream().findFirst().orElse(null);
 	}
@@ -55,10 +60,11 @@ public class AttendeeCheckInService {
 		return new Attendee(
 				resultSet.getString("token"),
 				resultSet.getString("name"),
+				resultSet.getString("email"),
 				resultSet.getBoolean("checked_in"),
 				checkedInAt == null ? null : checkedInAt.toInstant());
 	}
 
-	public record Attendee(String token, String name, boolean checkedIn, Instant checkedInAt) {
+	public record Attendee(String token, String name, String email, boolean checkedIn, Instant checkedInAt) {
 	}
 }
