@@ -189,6 +189,7 @@ This is a hackathon demo configuration, not durable production hosting: the clus
 |---|---|---|
 | `POST` | `/api/attendees` | Register an attendee and return attendee details, check-in URL, and a base64 PNG QR code. |
 | `GET` | `/api/attendees/summary` | Return `totalRegistered`, `checkedIn`, and `remaining` counts. |
+| `GET` | `/api/attendees/recent-check-ins` | Return the 8 most recent successful check-ins, with attendee names and timestamps. |
 | `POST` | `/api/attendees/{token}/check-in` | Check an attendee in. Returns `404` for an unknown token and `409` if already checked in. |
 | `GET` | `/check-in/{token}` | Display the attendee check-in confirmation page. |
 | `POST` | `/check-in/{token}` | Confirm check-in from the attendee link. |

@@ -166,6 +166,28 @@ class AttendeeControllerTests {
 		assertEquals(0, summary.remaining());
 	}
 
+	@Test
+	void recentCheckInsReturnsOnlyCheckedInAttendeesNewestFirst() throws Exception {
+		controller.register(new AttendeeController.RegistrationRequest("Not arrived", "waiting@example.com"));
+		for (int index = 0; index < 9; index++) {
+			String name = "Attendee " + index;
+			var registration = controller.register(new AttendeeController.RegistrationRequest(
+					name, "attendee" + index + "@example.com"));
+			controller.checkInApi(registration.getBody().attendeeId());
+			jdbcTemplate.update(
+					"UPDATE attendees SET checked_in_at = ? WHERE token = ?",
+					java.sql.Timestamp.from(java.time.Instant.parse("2025-01-01T10:00:00Z").plusSeconds(index * 60L)),
+					registration.getBody().attendeeId());
+		}
+
+		var recent = controller.recentCheckIns();
+
+		assertEquals(8, recent.size());
+		assertEquals("Attendee 8", recent.get(0).name());
+		assertEquals("Attendee 1", recent.get(7).name());
+		assertEquals(java.time.Instant.parse("2025-01-01T10:08:00Z"), recent.get(0).checkedInAt());
+	}
+
 	private int checkInStatusAfter(CountDownLatch start, String token) throws InterruptedException {
 		start.await();
 		try {
