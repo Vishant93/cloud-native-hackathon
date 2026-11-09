@@ -14,12 +14,6 @@ spec:
         - path:
             type: PathPrefix
             value: /eventpulse
-      filters:
-        - type: URLRewrite
-          urlRewrite:
-            path:
-              type: ReplacePrefixMatch
-              replacePrefixMatch: /
       backendRefs:
         - name: eventpulse-app
           port: 80

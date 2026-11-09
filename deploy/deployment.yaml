@@ -33,6 +33,8 @@ spec:
           env:
             - name: APP_BASE_URL
               value: https://vishant.cnh.radarhq.io/eventpulse
+            - name: SERVER_SERVLET_CONTEXT_PATH
+              value: /eventpulse
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: eventpulse-kafka:9092
             - name: SPRING_DATASOURCE_URL
@@ -53,13 +55,13 @@ spec:
               memory: 768Mi
           readinessProbe:
             httpGet:
-              path: /actuator/health/readiness
+              path: /eventpulse/actuator/health/readiness
               port: http
             periodSeconds: 5
             timeoutSeconds: 3
           livenessProbe:
             httpGet:
-              path: /actuator/health/liveness
+              path: /eventpulse/actuator/health/liveness
               port: http
             periodSeconds: 10
             timeoutSeconds: 3

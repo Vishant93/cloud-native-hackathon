@@ -6,7 +6,7 @@ on:
       - deploy/eventpulse
     paths-ignore:
       - README.md
-      - deploy/kustomization.yaml
+      - deploy/**
   workflow_dispatch:
 
 permissions:
