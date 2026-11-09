@@ -40,7 +40,7 @@ spec:
             - name: SPRING_DATASOURCE_URL
               value: jdbc:h2:file:/app/data/attendees;DB_CLOSE_ON_EXIT=FALSE
             - name: MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE
-              value: health
+              value: health,prometheus
             - name: MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED
               value: "true"
           volumeMounts:

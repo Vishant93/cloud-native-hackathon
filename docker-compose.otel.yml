@@ -6,7 +6,7 @@ services:
     ports:
       - "127.0.0.1:4318:4318"
     environment:
-      DASH0_OTLP_ENDPOINT: ${DASH0_OTLP_ENDPOINT:?Set DASH0_OTLP_ENDPOINT to your Dash0 OTLP base endpoint}
+      DASH0_OTLP_ENDPOINT: ${DASH0_OTLP_ENDPOINT:-https://ingress.us-east-1.aws.dash0.com}
       DASH0_AUTH_TOKEN: ${DASH0_AUTH_TOKEN:?Set DASH0_AUTH_TOKEN to your Dash0 authorization token}
       DASH0_DATASET: ${DASH0_DATASET:-default}
     volumes:
