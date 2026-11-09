@@ -128,6 +128,28 @@ class AttendeeControllerTests {
 		}
 	}
 
+	@Test
+	void attendanceSummaryCountsRegisteredCheckedInAndRemainingAttendees() throws Exception {
+		var first = controller.register(new AttendeeController.RegistrationRequest("Alex", "alex@example.com"));
+		controller.register(new AttendeeController.RegistrationRequest("Sam", "sam@example.com"));
+		controller.checkInApi(first.getBody().attendeeId());
+
+		var summary = controller.attendanceSummary();
+
+		assertEquals(2, summary.totalRegistered());
+		assertEquals(1, summary.checkedIn());
+		assertEquals(1, summary.remaining());
+	}
+
+	@Test
+	void attendanceSummaryIsZeroForEmptyAttendeeList() {
+		var summary = controller.attendanceSummary();
+
+		assertEquals(0, summary.totalRegistered());
+		assertEquals(0, summary.checkedIn());
+		assertEquals(0, summary.remaining());
+	}
+
 	private int checkInStatusAfter(CountDownLatch start, String token) throws InterruptedException {
 		start.await();
 		try {

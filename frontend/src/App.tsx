@@ -16,6 +16,12 @@ type RegistrationResult = {
   qrCodePngBase64: string;
 };
 
+type AttendanceSummary = {
+  totalRegistered: number;
+  checkedIn: number;
+  remaining: number;
+};
+
 type ScanState =
   | { kind: "idle"; message: string }
   | { kind: "loading"; message: string }
@@ -28,7 +34,12 @@ type RegistrationState =
   | { kind: "success"; attendee: RegistrationResult }
   | { kind: "error"; message: string };
 
-type View = "register" | "scanner";
+type DashboardState =
+  | { kind: "loading" }
+  | { kind: "loaded"; summary: AttendanceSummary }
+  | { kind: "error"; message: string };
+
+type View = "register" | "scanner" | "dashboard";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -86,8 +97,19 @@ async function submitRegistration(name: string, email: string): Promise<Registra
   return (await response.json()) as RegistrationResult;
 }
 
+async function fetchAttendanceSummary(): Promise<AttendanceSummary> {
+  const response = await fetch("/api/attendees/summary");
+  if (!response.ok) {
+    throw new Error(
+      await readErrorMessage(response, `Could not load attendance (${response.status})`),
+    );
+  }
+  return (await response.json()) as AttendanceSummary;
+}
+
 export default function App() {
   const [view, setView] = useState<View>("register");
+  const [dashboardState, setDashboardState] = useState<DashboardState>({ kind: "loading" });
   const [registrationState, setRegistrationState] = useState<RegistrationState>({
     kind: "idle",
   });
@@ -96,6 +118,19 @@ export default function App() {
     message: "Point the camera at an attendee QR code.",
   });
   const processingRef = useRef(false);
+
+  const loadDashboard = useCallback(async () => {
+    setDashboardState({ kind: "loading" });
+    try {
+      const summary = await fetchAttendanceSummary();
+      setDashboardState({ kind: "loaded", summary });
+    } catch (error) {
+      setDashboardState({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Unable to load attendance.",
+      });
+    }
+  }, []);
 
   const handleRegistration = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -169,6 +204,12 @@ export default function App() {
     };
   }, [handleScan, view]);
 
+  useEffect(() => {
+    if (view === "dashboard") {
+      void loadDashboard();
+    }
+  }, [loadDashboard, view]);
+
   return (
     <main className="page-shell">
       <header className="topbar">
@@ -193,6 +234,14 @@ export default function App() {
             onClick={() => setView("scanner")}
           >
             Staff scanner
+          </button>
+          <button
+            type="button"
+            className={view === "dashboard" ? "view-button active" : "view-button"}
+            aria-current={view === "dashboard" ? "page" : undefined}
+            onClick={() => setView("dashboard")}
+          >
+            Dashboard
           </button>
         </nav>
       </header>
@@ -271,7 +320,7 @@ export default function App() {
             </aside>
           )}
         </section>
-      ) : (
+      ) : view === "scanner" ? (
         <section className="scanner-layout" aria-label="Attendee QR scanner">
           <div className="scanner-card">
             <div className="card-heading">
@@ -309,6 +358,46 @@ export default function App() {
               </div>
             )}
           </aside>
+        </section>
+      ) : (
+        <section className="attendance-dashboard" aria-labelledby="dashboard-title">
+          <div className="dashboard-heading">
+            <div>
+              <p className="eyebrow">LIVE ATTENDANCE</p>
+              <h2 id="dashboard-title">Event overview</h2>
+            </div>
+            <button
+              type="button"
+              className="refresh-button"
+              onClick={() => void loadDashboard()}
+              disabled={dashboardState.kind === "loading"}
+            >
+              {dashboardState.kind === "loading" ? "Refreshing…" : "Refresh"}
+            </button>
+          </div>
+          {dashboardState.kind === "loading" ? (
+            <p className="dashboard-message" role="status">Loading attendance…</p>
+          ) : dashboardState.kind === "error" ? (
+            <p className="dashboard-error" role="alert">{dashboardState.message}</p>
+          ) : (
+            <div className="attendance-metrics" aria-live="polite">
+              <article className="metric-card">
+                <p className="eyebrow">REGISTERED</p>
+                <strong>{dashboardState.summary.totalRegistered}</strong>
+                <span>attendees</span>
+              </article>
+              <article className="metric-card metric-checked-in">
+                <p className="eyebrow">CHECKED IN</p>
+                <strong>{dashboardState.summary.checkedIn}</strong>
+                <span>attendees</span>
+              </article>
+              <article className="metric-card metric-remaining">
+                <p className="eyebrow">REMAINING</p>
+                <strong>{dashboardState.summary.remaining}</strong>
+                <span>attendees</span>
+              </article>
+            </div>
+          )}
         </section>
       )}
       <footer>EventPulse · Attendee details are stored securely</footer>

@@ -58,6 +58,11 @@ public class AttendeeController {
 		return ResponseEntity.status(HttpStatus.CREATED).body(response);
 	}
 
+	@GetMapping("/api/attendees/summary")
+	public AttendeeCheckInService.AttendanceSummary attendanceSummary() {
+		return attendeeService.getAttendanceSummary();
+	}
+
 	@GetMapping(value = "/check-in/{token}", produces = MediaType.TEXT_HTML_VALUE)
 	public String checkInPage(@PathVariable String token) {
 		var attendee = attendeeService.findByToken(token);

@@ -56,6 +56,18 @@ public class AttendeeCheckInService {
 		return attendee == null ? null : new CheckInAttempt(attendee, updatedRows == 1);
 	}
 
+	public AttendanceSummary getAttendanceSummary() {
+		return jdbcTemplate.queryForObject(
+				"SELECT COUNT(*) AS total_registered, "
+						+ "COUNT(CASE WHEN checked_in = TRUE THEN 1 END) AS checked_in "
+						+ "FROM attendees",
+				(resultSet, rowNumber) -> {
+					long totalRegistered = resultSet.getLong("total_registered");
+					long checkedIn = resultSet.getLong("checked_in");
+					return new AttendanceSummary(totalRegistered, checkedIn, totalRegistered - checkedIn);
+				});
+	}
+
 	private static Attendee mapAttendee(ResultSet resultSet, int rowNumber) throws SQLException {
 		var checkedInAt = resultSet.getTimestamp("checked_in_at");
 		return new Attendee(
@@ -70,5 +82,8 @@ public class AttendeeCheckInService {
 	}
 
 	public record CheckInAttempt(Attendee attendee, boolean checkedInNow) {
+	}
+
+	public record AttendanceSummary(long totalRegistered, long checkedIn, long remaining) {
 	}
 }
