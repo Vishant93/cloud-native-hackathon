@@ -127,18 +127,21 @@ Kafka settings can be changed with `KAFKA_BOOTSTRAP_SERVERS`, `KAFKA_CHECK_IN_TO
 
 ### Send metrics to Dash0 and investigate with Agent0
 
-The app exposes Micrometer/Prometheus metrics at `http://localhost:8080/actuator/prometheus`. The local OpenTelemetry Collector scrapes that endpoint every 10 seconds, adds the `service.name=eventpulse` and `deployment.environment.name=local` resource attributes, and forwards metrics to Dash0 over OTLP/HTTP. It also accepts k6's OTLP/HTTP metrics on `localhost:4318`, preserving k6's own service identity. That receiver is bound to the local machine only. The scrape endpoint is intended for local collection; do not expose it publicly.
+The app exposes Micrometer/Prometheus metrics at `http://localhost:8080/actuator/prometheus`. The local OpenTelemetry Collector scrapes that endpoint every 10 seconds, adds the `service.name=eventpulse` and `deployment.environment.name=local` resource attributes, and forwards metrics to Dash0 over OTLP/HTTP. It also accepts k6's OTLP/HTTP metrics on `localhost:4318`, preserving k6's own service identity. That receiver is bound to the local machine only. The scrape endpoint is intended for local collection; do not expose it publicly. If the endpoint returns `404`, restart the backend so it loads the current `management.endpoints.web.exposure.include=health,prometheus` setting. Verify it returns metrics before checking the Collector:
+
+```powershell
+Invoke-WebRequest http://localhost:8080/actuator/prometheus -UseBasicParsing
+```
 
 1. In Dash0, use the onboarding/integration instructions for your organization to obtain the OTLP base endpoint and an authorization token. Set these in the PowerShell terminal where you will run Compose; do not commit the token:
 
    ```powershell
-   $env:DASH0_OTLP_ENDPOINT = "https://<your-region-ingest-endpoint>"
    $env:DASH0_AUTH_TOKEN = "<your-dash0-token>"
    $env:DASH0_DATASET = "default"
    docker compose -f docker-compose.otel.yml up -d
    ```
 
-   `DASH0_OTLP_ENDPOINT` is the base endpoint from Dash0, without a signal path such as `/v1/metrics`. `DASH0_DATASET` defaults to `default` if you omit it. Confirm the collector is healthy with `docker compose -f docker-compose.otel.yml logs -f otel-collector`.
+   The Collector defaults to the US East OTLP base endpoint `https://ingress.us-east-1.aws.dash0.com`; override it with `DASH0_OTLP_ENDPOINT` if your Dash0 organization uses another region. Do not append a signal path such as `/v1/metrics`. `DASH0_DATASET` defaults to `default` if you omit it. Confirm the collector is healthy with `docker compose -f docker-compose.otel.yml logs -f otel-collector`.
 
 2. Start the backend, then configure k6 to send its run metrics to the collector. With k6 installed on Windows, set the OTLP options and run a test:
 
@@ -186,6 +189,7 @@ This is a hackathon demo configuration, not durable production hosting: the clus
 |---|---|---|
 | `POST` | `/api/attendees` | Register an attendee and return attendee details, check-in URL, and a base64 PNG QR code. |
 | `GET` | `/api/attendees/summary` | Return `totalRegistered`, `checkedIn`, and `remaining` counts. |
+| `GET` | `/api/attendees/recent-check-ins` | Return the 8 most recent successful check-ins, with attendee names and timestamps. |
 | `POST` | `/api/attendees/{token}/check-in` | Check an attendee in. Returns `404` for an unknown token and `409` if already checked in. |
 | `GET` | `/check-in/{token}` | Display the attendee check-in confirmation page. |
 | `POST` | `/check-in/{token}` | Confirm check-in from the attendee link. |

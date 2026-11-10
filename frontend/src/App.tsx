@@ -22,6 +22,11 @@ type AttendanceSummary = {
   remaining: number;
 };
 
+type RecentCheckIn = {
+  name: string;
+  checkedInAt: string;
+};
+
 type ScanState =
   | { kind: "idle"; message: string }
   | { kind: "loading"; message: string }
@@ -36,7 +41,14 @@ type RegistrationState =
 
 type DashboardState =
   | { kind: "loading" }
-  | { kind: "loaded"; summary: AttendanceSummary }
+  | {
+      kind: "loaded";
+      summary: AttendanceSummary;
+      recentCheckIns: RecentCheckIn[];
+      updatedAt: Date;
+      refreshing: boolean;
+      refreshError: string | null;
+    }
   | { kind: "error"; message: string };
 
 type View = "register" | "scanner" | "dashboard";
@@ -44,6 +56,7 @@ type View = "register" | "scanner" | "dashboard";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const API_BASE_URL = `${import.meta.env.BASE_URL}api`;
+const DASHBOARD_REFRESH_INTERVAL_MS = 15_000;
 
 async function readErrorMessage(response: Response, fallback: string): Promise<string> {
   try {
@@ -118,6 +131,16 @@ async function fetchAttendanceSummary(): Promise<AttendanceSummary> {
   return (await response.json()) as AttendanceSummary;
 }
 
+async function fetchRecentCheckIns(): Promise<RecentCheckIn[]> {
+  const response = await fetch(`${API_BASE_URL}/attendees/recent-check-ins`);
+  if (!response.ok) {
+    throw new Error(
+      await readErrorMessage(response, `Could not load recent check-ins (${response.status})`),
+    );
+  }
+  return (await response.json()) as RecentCheckIn[];
+}
+
 export default function App() {
   const [view, setView] = useState<View>("register");
   const [dashboardState, setDashboardState] = useState<DashboardState>({ kind: "loading" });
@@ -129,17 +152,40 @@ export default function App() {
     message: "Point the camera at an attendee QR code.",
   });
   const processingRef = useRef(false);
+  const dashboardRefreshInFlightRef = useRef(false);
 
   const loadDashboard = useCallback(async () => {
-    setDashboardState({ kind: "loading" });
+    if (dashboardRefreshInFlightRef.current) {
+      return;
+    }
+    dashboardRefreshInFlightRef.current = true;
+    setDashboardState((current) =>
+      current.kind === "loaded"
+        ? { ...current, refreshing: true, refreshError: null }
+        : { kind: "loading" },
+    );
     try {
-      const summary = await fetchAttendanceSummary();
-      setDashboardState({ kind: "loaded", summary });
-    } catch (error) {
+      const [summary, recentCheckIns] = await Promise.all([
+        fetchAttendanceSummary(),
+        fetchRecentCheckIns(),
+      ]);
       setDashboardState({
-        kind: "error",
-        message: error instanceof Error ? error.message : "Unable to load attendance.",
+        kind: "loaded",
+        summary,
+        recentCheckIns,
+        updatedAt: new Date(),
+        refreshing: false,
+        refreshError: null,
       });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to load attendance.";
+      setDashboardState((current) =>
+        current.kind === "loaded"
+          ? { ...current, refreshing: false, refreshError: message }
+          : { kind: "error", message },
+      );
+    } finally {
+      dashboardRefreshInFlightRef.current = false;
     }
   }, []);
 
@@ -218,6 +264,12 @@ export default function App() {
   useEffect(() => {
     if (view === "dashboard") {
       void loadDashboard();
+      const intervalId = window.setInterval(() => {
+        if (document.visibilityState === "visible") {
+          void loadDashboard();
+        }
+      }, DASHBOARD_REFRESH_INTERVAL_MS);
+      return () => window.clearInterval(intervalId);
     }
   }, [loadDashboard, view]);
 
@@ -403,9 +455,15 @@ export default function App() {
               type="button"
               className="refresh-button"
               onClick={() => void loadDashboard()}
-              disabled={dashboardState.kind === "loading"}
+              disabled={
+                dashboardState.kind === "loading" ||
+                (dashboardState.kind === "loaded" && dashboardState.refreshing)
+              }
             >
-              {dashboardState.kind === "loading" ? "Refreshing…" : "Refresh"}
+              {dashboardState.kind === "loading" ||
+              (dashboardState.kind === "loaded" && dashboardState.refreshing)
+                ? "Refreshing…"
+                : "Refresh now"}
             </button>
           </div>
           {dashboardState.kind === "loading" ? (
@@ -413,23 +471,121 @@ export default function App() {
           ) : dashboardState.kind === "error" ? (
             <p className="dashboard-error" role="alert">{dashboardState.message}</p>
           ) : (
-            <div className="attendance-metrics" aria-live="polite">
-              <article className="metric-card">
-                <p className="eyebrow">REGISTERED</p>
-                <strong>{dashboardState.summary.totalRegistered}</strong>
-                <span>attendees</span>
-              </article>
-              <article className="metric-card metric-checked-in">
-                <p className="eyebrow">CHECKED IN</p>
-                <strong>{dashboardState.summary.checkedIn}</strong>
-                <span>attendees</span>
-              </article>
-              <article className="metric-card metric-remaining">
-                <p className="eyebrow">REMAINING</p>
-                <strong>{dashboardState.summary.remaining}</strong>
-                <span>attendees</span>
-              </article>
-            </div>
+            <>
+              <div className="dashboard-update" role="status" aria-live="polite">
+                <span className="dashboard-live-dot" aria-hidden="true" />
+                <span>
+                  Updated at{" "}
+                  <time dateTime={dashboardState.updatedAt.toISOString()}>
+                    {dashboardState.updatedAt.toLocaleTimeString([], {
+                      hour: "numeric",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    })}
+                  </time>
+                </span>
+                <span className="dashboard-update-divider" aria-hidden="true">·</span>
+                <span>Auto-refreshes every 15 seconds</span>
+              </div>
+              {dashboardState.refreshError && (
+                <p className="dashboard-refresh-error" role="alert">
+                  Could not refresh the latest data: {dashboardState.refreshError}
+                </p>
+              )}
+              <div className="attendance-metrics" aria-live="polite">
+                <article className="metric-card">
+                  <p className="eyebrow">REGISTERED</p>
+                  <strong>{dashboardState.summary.totalRegistered}</strong>
+                  <span>attendees</span>
+                </article>
+                <article className="metric-card metric-checked-in">
+                  <p className="eyebrow">CHECKED IN</p>
+                  <strong>{dashboardState.summary.checkedIn}</strong>
+                  <span>attendees</span>
+                </article>
+                <article className="metric-card metric-remaining">
+                  <p className="eyebrow">REMAINING</p>
+                  <strong>{dashboardState.summary.remaining}</strong>
+                  <span>attendees</span>
+                </article>
+              </div>
+              <section className="dashboard-progress" aria-labelledby="progress-title">
+                <div className="dashboard-section-heading">
+                  <div>
+                    <p className="eyebrow">EVENT CHECK-IN</p>
+                    <h3 id="progress-title">Arrival progress</h3>
+                  </div>
+                  <strong>
+                    {dashboardState.summary.totalRegistered === 0
+                      ? 0
+                      : Math.round(
+                          (dashboardState.summary.checkedIn /
+                            dashboardState.summary.totalRegistered) *
+                            100,
+                        )}
+                    %
+                  </strong>
+                </div>
+                <div
+                  className="progress-track"
+                  role="progressbar"
+                  aria-label="Attendee check-in progress"
+                  aria-valuemin={0}
+                  aria-valuemax={dashboardState.summary.totalRegistered}
+                  aria-valuenow={dashboardState.summary.checkedIn}
+                  aria-valuetext={`${dashboardState.summary.checkedIn} of ${dashboardState.summary.totalRegistered} attendees checked in`}
+                >
+                  <span
+                    className="progress-fill"
+                    style={{
+                      width: `${
+                        dashboardState.summary.totalRegistered === 0
+                          ? 0
+                          : Math.min(
+                              100,
+                              (dashboardState.summary.checkedIn /
+                                dashboardState.summary.totalRegistered) *
+                                100,
+                            )
+                      }%`,
+                    }}
+                  />
+                </div>
+                <p className="progress-caption">
+                  {dashboardState.summary.checkedIn} of {dashboardState.summary.totalRegistered}{" "}
+                  attendees have arrived
+                </p>
+              </section>
+              <section className="recent-check-ins" aria-labelledby="recent-check-ins-title">
+                <div className="dashboard-section-heading recent-heading">
+                  <div>
+                    <p className="eyebrow">AT THE DOOR</p>
+                    <h3 id="recent-check-ins-title">Recent check-ins</h3>
+                  </div>
+                  <span className="recent-count">
+                    {dashboardState.recentCheckIns.length} latest
+                  </span>
+                </div>
+                {dashboardState.recentCheckIns.length === 0 ? (
+                  <p className="recent-empty">No attendees checked in yet.</p>
+                ) : (
+                  <ol className="recent-list">
+                    {dashboardState.recentCheckIns.map((checkIn, index) => (
+                      <li
+                        className="recent-item"
+                        key={`${checkIn.checkedInAt}-${checkIn.name}-${index}`}
+                      >
+                        <span className="recent-check-mark" aria-hidden="true">✓</span>
+                        <strong>{checkIn.name}</strong>
+                        <time dateTime={checkIn.checkedInAt}>
+                          {formatCheckInTime(checkIn.checkedInAt)}
+                        </time>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </section>
+            </>
           )}
         </section>
       )}

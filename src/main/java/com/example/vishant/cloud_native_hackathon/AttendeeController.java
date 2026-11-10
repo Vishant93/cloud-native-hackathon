@@ -3,6 +3,7 @@ package com.example.vishant.cloud_native_hackathon;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.List;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -61,6 +62,11 @@ public class AttendeeController {
 	@GetMapping("/api/attendees/summary")
 	public AttendeeCheckInService.AttendanceSummary attendanceSummary() {
 		return attendeeService.getAttendanceSummary();
+	}
+
+	@GetMapping("/api/attendees/recent-check-ins")
+	public List<AttendeeCheckInService.RecentCheckIn> recentCheckIns() {
+		return attendeeService.getRecentCheckIns();
 	}
 
 	@GetMapping(value = "/check-in/{token}", produces = MediaType.TEXT_HTML_VALUE)

@@ -1,6 +1,7 @@
 package com.example.vishant.cloud_native_hackathon;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AttendeeCheckInService {
 
+	private static final int RECENT_CHECK_IN_LIMIT = 8;
 	private static final RowMapper<Attendee> ATTENDEE_ROW_MAPPER = AttendeeCheckInService::mapAttendee;
 
 	private final JdbcTemplate jdbcTemplate;
@@ -80,6 +82,17 @@ public class AttendeeCheckInService {
 				});
 	}
 
+	public List<RecentCheckIn> getRecentCheckIns() {
+		return jdbcTemplate.query(
+				"SELECT name, checked_in_at FROM attendees "
+						+ "WHERE checked_in = TRUE AND checked_in_at IS NOT NULL "
+						+ "ORDER BY checked_in_at DESC, token DESC LIMIT ?",
+				(resultSet, rowNumber) -> new RecentCheckIn(
+						resultSet.getString("name"),
+						resultSet.getTimestamp("checked_in_at").toInstant()),
+				RECENT_CHECK_IN_LIMIT);
+	}
+
 	private static Attendee mapAttendee(ResultSet resultSet, int rowNumber) throws SQLException {
 		var checkedInAt = resultSet.getTimestamp("checked_in_at");
 		return new Attendee(
@@ -97,5 +110,8 @@ public class AttendeeCheckInService {
 	}
 
 	public record AttendanceSummary(long totalRegistered, long checkedIn, long remaining) {
+	}
+
+	public record RecentCheckIn(String name, Instant checkedInAt) {
 	}
 }
